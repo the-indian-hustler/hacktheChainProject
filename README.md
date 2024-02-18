@@ -1,1 +1,2 @@
 This is  a project which aims to solve all the problems of the students including the water, electricity , internet, garbage , stray dogs etc.
+Whenver a student faces any issue he needs to submit a form only and  a mail will be sent to respective authorities of college automatically with attachment of the problem photo of the student . We also have made a platform where student find full help for physical reporting , with provision of online meetings to solve their doubts. 
