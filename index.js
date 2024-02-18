@@ -1,88 +1,102 @@
-// this is for the back tot top
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const multer = require("multer");
+const path = require('path');
+const nodemailer = require("nodemailer");
+const dotenv = require("dotenv");
+const { sendEmail } = require("./nodemail");
 
-let backToTopBtn = document.querySelector('.back-to-top')
+dotenv.config();
 
-window.onscroll = () => {
-    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-        backToTopBtn.style.display = 'flex'
+const app = express();
+const port = process.env.PORT || 3013;
+
+// MongoDB connection
+mongoose.connect("mongodb+srv://sanidhyamadheshia:ZHyATJlgvFVgpJ2e@cluster0.oow7nwx.mongodb.net/college_dev?retryWrites=true&w=majority, { useNewUrlParser: true, useUnifiedTopology: true }")
+    .then(() => console.log("DB CONNECTED >>>"))
+    .catch(err => console.error(err));
+
+// Multer configuration
+const storage = multer.diskStorage({
+    destination: './uploads/',
+    filename: function(req, file, cb) {
+        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 1000000 }, // 1MB limit
+    fileFilter: function(req, file, cb) {
+        checkFileType(file, cb);
+    }
+}).single('photo');
+
+function checkFileType(file, cb) {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+    if (mimetype && extname) {
+        return cb(null, true);
     } else {
-        backToTopBtn.style.display = 'none'
+        cb('Error: Images only!');
     }
 }
 
-//this is for the top nav menu
+// Express middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static('uploads'));
 
-let menuthings = document.getElementsByClassName('menu-thing')
+// Registration schema
+const registrationSchema = new mongoose.Schema({
+    email: String,
+    _name: String,
+    mobile: String,
+    room: String,
+    description: String,
+    photo: String
+});
 
-Array.from(menuthings).forEach((thing, index) => {
-    thing.onclick = (e) => {
-        let currMenu = document.querySelector('.menu-thing.active')
-        currMenu.classList.remove('active')
-        thing.classList.add('active')
-    }
-})
+const Registration = mongoose.model("Registration", registrationSchema);
 
-// this is for the college category
-
-let collegeMenuList = document.querySelector('.college-thing-wrap')
-
-let collegeCategory = document.querySelector('.college-category')
-
-let categories = collegeCategory.querySelectorAll('button')
-
-Array.from(categories).forEach((thing, index) => {
-    thing.onclick = (e) => {
-        let currCat = collegeCategory.querySelector('button.active')
-        currCat.classList.remove('active')
-        e.target.classList.add('active')
-        collegeMenuList.classList ='college-thing-wrap '+ e.target.getAttribute('data-college-type')
-    }
-})
-
-// this is for the on scroll animation
-
-let scroll = window.requestAnimationFrame || function(callback) {window.setTimeout(callback, 1000/60)}
-
-let elToShow = document.querySelectorAll('.play-on-scroll')
-
-isElInViewPort = (el) => {
-    let rect = el.getBoundingClientRect()
-
-    return (
-        (rect.top <= 0 && rect.bottom >= 0)
-        ||
-        (rect.bottom >= (window.innerHeight || document.documentElement.clientHeight) && rect.top <= (window.innerHeight || document.documentElement.clientHeight))
-        ||
-        (rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight))
-    )
-}
-
-loop = () => {
-    elToShow.forEach((thing, index) => {
-        if (isElInViewPort(thing)) {
-            thing.classList.add('start')
+// Register route
+app.post("/register", async (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            res.send(err);
         } else {
-            thing.classList.remove('start')
+            if (req.file == undefined) {
+                res.send('Error: No file selected!');
+            } else {
+                const newRegistration = new Registration({
+                    email: req.body.email,
+                    _name: req.body.name,
+                    mobile: req.body.mobile,
+                    room: req.body.room,
+                    description: req.body.description,
+                    photo: req.file.filename
+                });
+
+                try {
+                    await newRegistration.save();
+                    // sendEmail(req.body.name, req.body.mobile, req.body.room, req.body.description, req.file.filename);
+                    console.log("email sent to sanidhyamadheshia@gmail.com");
+                    res.send('File uploaded and data saved to MongoDB!');
+
+                } catch (err) {
+                    res.send(err);
+                }
+            }
         }
-    })
+    });
+});
+app.get("/", (req, res) => {
+    res.sendFile(__dirname + "/index.html")
+});
 
-    scroll(loop)
-}
-
-loop()
-
-//this is for the  mobile nav
-
-let bottomNavthings = document.querySelectorAll('.mb-nav-thing')
-
-let bottomMove = document.querySelector('.mb-move-thing')
-
-bottomNavthings.forEach((thing, index) => {
-    thing.onclick = (e) => {
-        console.log('object')
-        let crrthing = document.querySelector('.mb-nav-thing.active')
-        crrthing.classList.remove('active')
-        thing.classList.add('active')
-        bottomMove.style.left = index * 25 + '%'
-    }
-})
+// Start server
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
